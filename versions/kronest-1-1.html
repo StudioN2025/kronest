@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🔧 KroKit Studio — караоке-конструктор</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0b1120 0%, #19223a 100%);
+            font-family: 'Segoe UI', 'Inter', system-ui, sans-serif;
+            padding: 20px;
+            min-height: 100vh;
+            color: #eef4ff;
+        }
+
+        .app-container {
+            max-width: 1500px;
+            margin: 0 auto;
+        }
+
+        /* ========== МЕНЮ ========== */
+        .top-menu {
+            background: rgba(8, 12, 24, 0.9);
+            backdrop-filter: blur(12px);
+            border-radius: 60px;
+            padding: 8px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #ffd96640;
+        }
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo {
+            font-size: 1.8rem;
+        }
+        .logo-text {
+            font-weight: bold;
+            background: linear-gradient(135deg, #FFD966, #FFA559);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-size: 1.3rem;
+        }
+        .mode-switch {
+            display: flex;
+            gap: 12px;
+            background: #0f1424;
+            padding: 6px;
+            border-radius: 60px;
+        }
+        .mode-btn {
+            background: transparent;
+            border: none;
+            padding: 10px 28px;
+            border-radius: 60px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #b9c3e0;
+        }
+        .mode-btn.active {
+            background: #FFB347;
+            color: #0a0f1e;
+            box-shadow: 0 2px 8px rgba(255, 180, 70, 0.4);
+        }
+        .menu-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .icon-btn {
+            background: #1f2a46;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 40px;
+            cursor: pointer;
+            color: white;
+            transition: 0.2s;
+        }
+        .icon-btn:hover {
+            background: #FFB347;
+            color: #0b1120;
+        }
+
+        /* ========== ОСНОВНОЙ КОНТЕЙНЕР ========== */
+        .editor-layout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            transition: all 0.3s;
+        }
+        .panel {
+            background: rgba(12, 18, 32, 0.8);
+            backdrop-filter: blur(4px);
+            border-radius: 32px;
+            padding: 22px;
+            border: 1px solid #2f3b5c;
+        }
+        .panel-left {
+            flex: 1.2;
+            min-width: 280px;
+        }
+        .panel-right {
+            flex: 2;
+            min-width: 380px;
+        }
+
+        /* Аудио зона */
+        .audio-zone {
+            background: #0a0f1c;
+            border-radius: 28px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .file-label {
+            background: #2a3655;
+            padding: 10px 20px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #ffb34770;
+        }
+        .file-label:hover {
+            background: #ffb347;
+            color: #0b1120;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        audio {
+            width: 100%;
+            margin-top: 12px;
+            border-radius: 30px;
+        }
+        .section-title {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            border-left: 5px solid #FFD966;
+            padding-left: 14px;
+        }
+        textarea {
+            width: 100%;
+            background: #0b1020;
+            border: 1px solid #2f3e62;
+            border-radius: 24px;
+            padding: 16px;
+            color: #f0f4ff;
+            font-size: 1rem;
+            font-family: monospace;
+            resize: vertical;
+        }
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 18px 0;
+        }
+        button {
+            background: #202e4a;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 60px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            border: 1px solid #ffd96670;
+        }
+        button:hover {
+            background: #FFA559;
+            color: #0e1628;
+            transform: scale(0.97);
+        }
+        .btn-primary {
+            background: #FF8C42;
+        }
+        .btn-record {
+            background: #b34e3a;
+        }
+        .btn-record-active {
+            background: #e05a3a;
+            animation: pulse 0.8s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 #ffa059; }
+            70% { box-shadow: 0 0 0 8px rgba(255,100,50,0); }
+            100% { box-shadow: 0 0 0 0 rgba(255,100,50,0); }
+        }
+
+        /* Список строк с РЕДАКТИРОВАНИЕМ */
+        .lines-list {
+            max-height: 520px;
+            overflow-y: auto;
+            background: #0d1224;
+            border-radius: 28px;
+            padding: 8px;
+        }
+        .line-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #131b30;
+            margin: 8px 0;
+            padding: 10px 14px;
+            border-radius: 60px;
+            gap: 10px;
+            cursor: pointer;
+            border-left: 4px solid #3a4870;
+            transition: 0.1s;
+            flex-wrap: wrap;
+        }
+        .line-item.active-timing {
+            background: #2a3a60;
+            border-left: 6px solid #FFD966;
+        }
+        .line-text-editable {
+            flex: 3;
+            min-width: 150px;
+            background: #1a2440;
+            border: 1px solid #4a5a7a;
+            border-radius: 40px;
+            padding: 8px 14px;
+            color: #eef4ff;
+            font-size: 0.9rem;
+            font-family: inherit;
+            transition: 0.1s;
+        }
+        .line-text-editable:focus {
+            outline: none;
+            border-color: #FFD966;
+            background: #2a3a60;
+        }
+        .line-time {
+            font-family: monospace;
+            background: #010514;
+            padding: 6px 12px;
+            border-radius: 40px;
+            min-width: 90px;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+        .line-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .tiny-btn {
+            background: #2a3a60;
+            padding: 6px 10px;
+            font-size: 0.7rem;
+            border-radius: 40px;
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .tiny-btn:hover {
+            background: #FFB347;
+            color: #0a0f1e;
+            transform: scale(0.95);
+        }
+        .warning {
+            color: #ffbc6e;
+            font-size: 0.8rem;
+            margin-top: 12px;
+        }
+        .success {
+            color: #8bc34a;
+        }
+
+        /* Профессиональные панели */
+        .pro-panel {
+            background: #0a1020;
+            border-radius: 24px;
+            padding: 16px;
+            margin-top: 20px;
+            transition: 0.2s;
+        }
+        .pro-panel h4 {
+            color: #FFD966;
+            margin-bottom: 12px;
+        }
+        .micro-adjust {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .micro-adjust input {
+            background: #1e2a46;
+            border: 1px solid #ffb347;
+            padding: 8px 12px;
+            border-radius: 40px;
+            color: white;
+            width: 100px;
+        }
+        .hidden {
+            display: none;
+        }
+
+        .preview-screen {
+            background: #070c1a;
+            border-radius: 28px;
+            padding: 20px;
+            margin-top: 18px;
+            text-align: center;
+        }
+        .current-line-preview {
+            color: #FFE484;
+            font-size: 1.5rem;
+            margin-top: 10px;
+            word-break: break-word;
+        }
+        hr {
+            border-color: #2f3e62;
+            margin: 16px 0;
+        }
+        footer {
+            text-align: center;
+            margin-top: 28px;
+            font-size: 0.7rem;
+            opacity: 0.6;
+        }
+        .add-line-bar {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            align-items: center;
+        }
+        .add-line-bar input {
+            flex: 1;
+            background: #1a2340;
+            border: 1px solid #4a5a7a;
+            border-radius: 40px;
+            padding: 10px 16px;
+            color: white;
+            font-size: 0.9rem;
+        }
+        .add-line-bar input:focus {
+            outline: none;
+            border-color: #FFD966;
+        }
+        .stats-info {
+            font-size: 0.75rem;
+            color: #7e8bb3;
+            margin-top: 8px;
+            text-align: center;
+        }
+        @media (max-width: 700px) {
+            .line-text-editable { font-size: 0.8rem; min-width: 120px; }
+            .line-time { min-width: 70px; font-size: 0.7rem; }
+            .tiny-btn { padding: 4px 8px; font-size: 0.65rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <!-- ВЕРХНЕЕ МЕНЮ -->
+    <div class="top-menu">
+        <div class="logo-area">
+            <span class="logo">🔧</span>
+            <span class="logo-text">KroKit Studio</span>
+        </div>
+        <div class="mode-switch">
+            <button class="mode-btn" data-mode="quick" id="quickModeBtn">⚡ Быстрый режим</button>
+            <button class="mode-btn active" data-mode="pro" id="proModeBtn">🎛️ Профессиональный</button>
+        </div>
+        <div class="menu-actions">
+            <button class="icon-btn" id="menuNewBtn">➕ Новый проект</button>
+            <button class="icon-btn" id="menuHelpBtn">❓ Справка</button>
+        </div>
+    </div>
+
+    <div class="editor-layout">
+        <!-- ЛЕВАЯ ПАНЕЛЬ -->
+        <div class="panel panel-left">
+            <div class="audio-zone">
+                <h3>🎵 1. Загрузи минус / инструментал</h3>
+                <label class="file-label">📁 Выбрать MP3 / Audio
+                    <input type="file" id="audioUpload" accept="audio/*">
+                </label>
+                <audio id="audioPlayer" controls></audio>
+                <div id="audioStats" style="margin-top:8px; font-size:0.8rem;"></div>
+            </div>
+
+            <div class="lyrics-editor">
+                <div class="section-title">📝 2. Массовый импорт текста</div>
+                <textarea id="lyricsInput" rows="5" placeholder="Введите строки, каждая с новой строки..."></textarea>
+                <div class="button-group">
+                    <button id="loadTextBtn">📋 Пример текста</button>
+                    <button id="applyTextBtn">✨ Импортировать строки</button>
+                    <button id="clearTimingsBtn">🕒 Сбросить тайминги</button>
+                </div>
+            </div>
+
+            <!-- ПРОФЕССИОНАЛЬНЫЕ НАСТРОЙКИ -->
+            <div id="proSettingsPanel" class="pro-panel">
+                <h4>🎚️ Профессиональные инструменты</h4>
+                <div class="micro-adjust">
+                    <span>Сдвиг всех таймингов:</span>
+                    <input type="number" id="globalShift" step="0.1" value="0" placeholder="сек">
+                    <button id="applyShiftBtn">⏩ Применить сдвиг</button>
+                </div>
+                <div class="micro-adjust" style="margin-top: 12px;">
+                    <span>Выровнять по битам (авто):</span>
+                    <button id="autoAlignBtn">🔧 Распределить равномерно</button>
+                </div>
+                <div class="micro-adjust" style="margin-top: 12px;">
+                    <span>Очистить все тайминги:</span>
+                    <button id="clearAllTimingsBtn">🗑️ Сбросить всё</button>
+                </div>
+                <div class="warning">💡 Про-режим: точная настройка, сдвиг, авто-выравнивание</div>
+            </div>
+        </div>
+
+        <!-- ПРАВАЯ ПАНЕЛЬ: РЕДАКТИРУЕМЫЙ СПИСОК -->
+        <div class="panel panel-right">
+            <div class="section-title">🎼 Редактор строк (клик по строке = привязать время)</div>
+            <div class="lines-list" id="linesListContainer">
+                <div style="text-align:center;padding:40px;">⚡ Загрузите текст или добавьте строки вручную</div>
+            </div>
+            
+            <!-- Панель добавления новой строки -->
+            <div class="add-line-bar">
+                <input type="text" id="newLineText" placeholder="Новая строка текста..." maxlength="200">
+                <button id="addLineBtn">➕ Добавить строку</button>
+            </div>
+
+            <div class="preview-screen">
+                <div>🎤 Предпросмотр активной строки</div>
+                <div class="current-line-preview" id="previewLineText">—</div>
+            </div>
+
+            <hr>
+            <div class="button-group" style="justify-content:center;">
+                <button id="exportKroBtn" class="btn-primary">💾 Экспорт .kro</button>
+                <button id="loadKroBtn">📂 Открыть .kro файл</button>
+                <input type="file" id="kroFileInput" accept=".kro" style="display:none;">
+            </div>
+            <div id="exportMsg" class="warning" style="text-align:center;"></div>
+            <div class="stats-info" id="statsInfo">📊 Строк: 0 | Таймингов: 0</div>
+        </div>
+    </div>
+    <footer>🔧 KroKit Studio — Редактируй строки прямо в списке. Клик по строке = взять текущее время из плеера</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+    // ---------- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ----------
+    let audioElement = document.getElementById('audioPlayer');
+    let currentLyrics = [];
+    let timings = [];
+    let isRecordingMode = false;
+    let currentAudioFile = null;
+    let currentMode = "pro";
+    
+    // DOM элементы
+    const lyricsInput = document.getElementById('lyricsInput');
+    const linesContainer = document.getElementById('linesListContainer');
+    const previewLineSpan = document.getElementById('previewLineText');
+    const proPanel = document.getElementById('proSettingsPanel');
+    const quickModeBtn = document.getElementById('quickModeBtn');
+    const proModeBtn = document.getElementById('proModeBtn');
+    const newLineTextInput = document.getElementById('newLineText');
+    const addLineBtn = document.getElementById('addLineBtn');
+    const statsInfo = document.getElementById('statsInfo');
+    
+    // ========== РЕЖИМЫ ==========
+    function setMode(mode) {
+        currentMode = mode;
+        if (mode === 'quick') {
+            proPanel.classList.add('hidden');
+            quickModeBtn.classList.add('active');
+            proModeBtn.classList.remove('active');
+        } else {
+            proPanel.classList.remove('hidden');
+            proModeBtn.classList.add('active');
+            quickModeBtn.classList.remove('active');
+        }
+    }
+    
+    function getCurrentAudioTime() {
+        if (audioElement && audioElement.src && !isNaN(audioElement.currentTime)) {
+            return audioElement.currentTime;
+        }
+        return 0;
+    }
+    
+    function showMessage(msg, isError = false) {
+        const msgDiv = document.getElementById('exportMsg');
+        msgDiv.innerText = msg;
+        msgDiv.style.color = isError ? '#ff8888' : '#ffbc6e';
+        setTimeout(() => { if(msgDiv.innerText === msg) msgDiv.innerText = ''; }, 2500);
+    }
+    
+    function escapeHtml(str) {
+        return str.replace(/[&<>]/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+    }
+    
+    function updatePreviewFromIndex(idx) {
+        if (idx >= 0 && currentLyrics[idx]) previewLineSpan.innerHTML = escapeHtml(currentLyrics[idx]);
+        else previewLineSpan.innerHTML = "—";
+    }
+    
+    function updateStats() {
+        const timingsCount = timings.filter(t => t !== null && t !== undefined).length;
+        statsInfo.innerHTML = `📊 Строк: ${currentLyrics.length} | Таймингов задано: ${timingsCount}`;
+    }
+    
+    // ОСНОВНАЯ ОТРИСОВКА СПИСКА С РЕДАКТИРУЕМЫМИ ПОЛЯМИ
+    function renderLinesList() {
+        if (!currentLyrics.length) {
+            linesContainer.innerHTML = '<div style="text-align:center;padding:40px;">📄 Нет строк. Добавьте через импорт или вручную</div>';
+            updateStats();
+            return;
+        }
+        let html = '';
+        currentLyrics.forEach((line, idx) => {
+            const timeVal = (timings[idx] !== undefined && timings[idx] !== null) ? timings[idx].toFixed(2) : '—';
+            html += `
+                <div class="line-item" data-line-index="${idx}">
+                    <input type="text" class="line-text-editable" data-idx="${idx}" value="${escapeHtml(line)}">
+                    <div class="line-time">${timeVal !== '—' ? timeVal + ' сек' : '⚡ не задан'}</div>
+                    <div class="line-actions">
+                        <button class="tiny-btn set-time-btn" data-idx="${idx}">🎯 Привязать</button>
+                        <button class="tiny-btn delete-line-btn" data-idx="${idx}">🗑️ Удалить</button>
+                        <button class="tiny-btn move-up-btn" data-idx="${idx}">⬆️</button>
+                        <button class="tiny-btn move-down-btn" data-idx="${idx}">⬇️</button>
+                    </div>
+                </div>
+            `;
+        });
+        linesContainer.innerHTML = html;
+        
+        // Привязка времени
+        document.querySelectorAll('.set-time-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.idx);
+                const t = getCurrentAudioTime();
+                if (audioElement.src && t >= 0) {
+                    timings[idx] = t;
+                    renderLinesList();
+                    showMessage(`✅ строка ${idx+1} → ${t.toFixed(2)}с`);
+                    updatePreviewFromIndex(idx);
+                    updateStats();
+                } else { showMessage("Запустите аудио или загрузите трек", true); }
+            });
+        });
+        
+        // Удаление строки
+        document.querySelectorAll('.delete-line-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.idx);
+                if (confirm(`Удалить строку "${currentLyrics[idx].substring(0, 50)}"?`)) {
+                    currentLyrics.splice(idx, 1);
+                    timings.splice(idx, 1);
+                    renderLinesList();
+                    showMessage(`Строка удалена`);
+                    if (currentLyrics.length === 0) previewLineSpan.innerHTML = "—";
+                    else updatePreviewFromIndex(Math.min(idx, currentLyrics.length - 1));
+                    updateStats();
+                }
+            });
+        });
+        
+        // Перемещение вверх
+        document.querySelectorAll('.move-up-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.idx);
+                if (idx > 0) {
+                    [currentLyrics[idx-1], currentLyrics[idx]] = [currentLyrics[idx], currentLyrics[idx-1]];
+                    [timings[idx-1], timings[idx]] = [timings[idx], timings[idx-1]];
+                    renderLinesList();
+                    showMessage(`Строка перемещена вверх`);
+                    updateStats();
+                }
+            });
+        });
+        
+        // Перемещение вниз
+        document.querySelectorAll('.move-down-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.idx);
+                if (idx < currentLyrics.length - 1) {
+                    [currentLyrics[idx+1], currentLyrics[idx]] = [currentLyrics[idx], currentLyrics[idx+1]];
+                    [timings[idx+1], timings[idx]] = [timings[idx], timings[idx+1]];
+                    renderLinesList();
+                    showMessage(`Строка перемещена вниз`);
+                    updateStats();
+                }
+            });
+        });
+        
+        // Редактирование текста через input (сохраняем при изменении)
+        document.querySelectorAll('.line-text-editable').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const idx = parseInt(input.dataset.idx);
+                const newVal = input.value.trim();
+                if (newVal !== "") {
+                    currentLyrics[idx] = newVal;
+                    showMessage(`Строка ${idx+1} обновлена`);
+                    updatePreviewFromIndex(idx);
+                    updateStats();
+                } else {
+                    input.value = currentLyrics[idx];
+                }
+            });
+        });
+        
+        // Клик по всей строке для привязки времени (удобно в режиме записи)
+        document.querySelectorAll('.line-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                if (e.target.classList.contains('tiny-btn') || e.target.classList.contains('line-text-editable')) return;
+                const idx = parseInt(item.dataset.lineIndex);
+                if (!isRecordingMode) {
+                    const now = getCurrentAudioTime();
+                    if (audioElement.src && now >= 0) {
+                        timings[idx] = now;
+                        renderLinesList();
+                        showMessage(`🔗 строка ${idx+1} = ${now.toFixed(2)}c`);
+                        updatePreviewFromIndex(idx);
+                        updateStats();
+                    }
+                } else {
+                    const now = getCurrentAudioTime();
+                    if (now >= 0) {
+                        timings[idx] = now;
+                        renderLinesList();
+                        showMessage(`🔴 REC: строка ${idx+1} на ${now.toFixed(2)}с`);
+                        updatePreviewFromIndex(idx);
+                        updateStats();
+                    }
+                }
+            });
+        });
+        
+        updateStats();
+    }
+    
+    // Добавление новой строки
+    function addNewLine() {
+        let newText = newLineTextInput.value.trim();
+        if (newText === "") {
+            showMessage("Введите текст строки", true);
+            return;
+        }
+        currentLyrics.push(newText);
+        timings.push(null);
+        renderLinesList();
+        newLineTextInput.value = "";
+        showMessage(`➕ Добавлена строка: "${newText.substring(0, 40)}"`);
+        // прокрутка вниз
+        setTimeout(() => {
+            if (linesContainer.lastChild) linesContainer.lastChild.scrollIntoView({ behavior: 'smooth' });
+        }, 50);
+        updateStats();
+    }
+    
+    // Импорт из textarea (массовый)
+    function applyLyrics() {
+        let raw = lyricsInput.value;
+        let lines = raw.split(/\r?\n/).filter(l => l.trim().length > 0);
+        if (lines.length === 0) { alert("Введите строки!"); return; }
+        currentLyrics = lines.map(l => l.trim());
+        timings = new Array(currentLyrics.length).fill(null);
+        renderLinesList();
+        showMessage(`📖 Импортировано ${currentLyrics.length} строк.`);
+        previewLineSpan.innerHTML = currentLyrics[0] || "—";
+        updateStats();
+    }
+    
+    function loadExample() {
+        lyricsInput.value = `Когда зажигаются свечи,\nИ музыка льётся рекой,\nЯ снова ищу нашу встречу,\nСпоём эту песню с тобой!\nКараоке, звёздный час,\nПодари нам волшебство!`;
+        applyLyrics();
+    }
+    
+    // Запись таймингов
+    function startRecording() {
+        if (!audioElement.src || !currentLyrics.length) { alert("Загрузите аудио и текст!"); return; }
+        if (isRecordingMode) return;
+        isRecordingMode = true;
+        const btn = document.getElementById('startRecordBtn');
+        if(btn) btn.classList.add('btn-record-active');
+        audioElement.play().catch(e=>console.log);
+        showMessage("🔴 РЕЖИМ ЗАПИСИ: кликайте по строкам!");
+    }
+    
+    function stopRecording() {
+        if (!isRecordingMode) return;
+        isRecordingMode = false;
+        const btn = document.getElementById('startRecordBtn');
+        if(btn) btn.classList.remove('btn-record-active');
+        audioElement.pause();
+        showMessage("Запись остановлена");
+    }
+    
+    // Проф. инструменты
+    function applyGlobalShift() {
+        const shift = parseFloat(document.getElementById('globalShift').value);
+        if (isNaN(shift)) return;
+        let changed = false;
+        for (let i = 0; i < timings.length; i++) {
+            if (timings[i] !== null && timings[i] !== undefined) {
+                timings[i] = Math.max(0, timings[i] + shift);
+                changed = true;
+            }
+        }
+        if (changed) { renderLinesList(); showMessage(`⏩ Сдвиг на ${shift > 0 ? '+' : ''}${shift} сек`); updateStats(); }
+        else showMessage("Нет заданных таймингов", true);
+    }
+    
+    function autoAlign() {
+        if (!currentLyrics.length) return;
+        const duration = audioElement.duration;
+        if (!duration || duration <= 0) { showMessage("Загрузите аудио с длительностью", true); return; }
+        const count = currentLyrics.length;
+        const step = duration / (count + 0.5);
+        for (let i = 0; i < count; i++) timings[i] = i * step;
+        renderLinesList();
+        showMessage(`🔧 Авто-выравнивание: строки по ${step.toFixed(2)} сек`);
+        updateStats();
+    }
+    
+    function clearAllTimings() {
+        if (confirm("Очистить все тайминги?")) {
+            timings = new Array(currentLyrics.length).fill(null);
+            renderLinesList();
+            showMessage("Все тайминги сброшены");
+            updateStats();
+        }
+    }
+    
+    // Экспорт .kro
+    async function exportAsKro() {
+        if (!currentLyrics.length) { showMessage("Нет строк", true); return; }
+        if (!currentAudioFile) { showMessage("Загрузите аудиофайл!", true); return; }
+        const songTitle = prompt("Название песни:", "Моя песня") || "Караоке трек";
+        const projectData = {
+            version: "1.0",
+            songTitle: songTitle,
+            lyrics: currentLyrics,
+            timings: timings.map(t => (t !== null ? parseFloat(t) : null))
+        };
+        const zip = new JSZip();
+        zip.file("project.json", JSON.stringify(projectData, null, 2));
+        zip.file("audio.mp3", currentAudioFile, { binary: true });
+        const content = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${songTitle.replace(/[^a-zа-яё0-9]/gi, '_')}.kro`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showMessage(`✅ Экспорт завершён! Размер: ${(content.size / 1024).toFixed(1)} KB`);
+    }
+    
+    async function loadKroFile(file) {
+        try {
+            const zip = await JSZip.loadAsync(file);
+            const projFile = zip.file("project.json");
+            const audioFile = zip.file("audio.mp3");
+            if (!projFile) throw new Error("Нет project.json");
+            const project = JSON.parse(await projFile.async("string"));
+            currentLyrics = project.lyrics || [];
+            timings = project.timings || new Array(currentLyrics.length).fill(null);
+            lyricsInput.value = currentLyrics.join('\n');
+            renderLinesList();
+            previewLineSpan.innerHTML = currentLyrics[0] || "—";
+            if (audioFile) {
+                const audioBlob = await audioFile.async("blob");
+                currentAudioFile = audioBlob;
+                const url = URL.createObjectURL(audioBlob);
+                audioElement.src = url;
+                audioElement.load();
+                document.getElementById('audioStats').innerHTML = `🎵 ${(audioBlob.size/1024/1024).toFixed(2)} MB`;
+                showMessage(`📦 Загружен .kro: ${project.songTitle || "трек"}`);
+            }
+            updateStats();
+        } catch(e) { showMessage("Ошибка .kro: " + e.message, true); }
+    }
+    
+    // Добавляем кнопки записи
+    function addRecordButtons() {
+        const recordDiv = document.createElement('div');
+        recordDiv.className = 'button-group';
+        recordDiv.innerHTML = `
+            <button id="startRecordBtn" class="btn-record">🔴 Запись таймингов</button>
+            <button id="stopRecordBtn">⏹️ Остановить</button>
+            <button id="playMusicBtn">▶️ Слушать трек</button>
+        `;
+        const target = document.querySelector('.preview-screen');
+        target.parentNode.insertBefore(recordDiv, target);
+        document.getElementById('startRecordBtn')?.addEventListener('click', startRecording);
+        document.getElementById('stopRecordBtn')?.addEventListener('click', stopRecording);
+        document.getElementById('playMusicBtn')?.addEventListener('click', () => { if(audioElement.src) audioElement.play(); else showMessage("Нет аудио",true); });
+    }
+    
+    // Обработчики
+    document.getElementById('audioUpload').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            currentAudioFile = file;
+            const url = URL.createObjectURL(file);
+            audioElement.src = url;
+            audioElement.load();
+            document.getElementById('audioStats').innerHTML = `📀 ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
+            showMessage("Аудио загружено");
+        }
+    });
+    
+    document.getElementById('applyTextBtn').addEventListener('click', applyLyrics);
+    document.getElementById('loadTextBtn').addEventListener('click', loadExample);
+    document.getElementById('clearTimingsBtn').addEventListener('click', clearAllTimings);
+    document.getElementById('exportKroBtn').addEventListener('click', exportAsKro);
+    document.getElementById('loadKroBtn').addEventListener('click', () => document.getElementById('kroFileInput').click());
+    document.getElementById('kroFileInput').addEventListener('change', (e) => { if(e.target.files[0]) loadKroFile(e.target.files[0]); });
+    document.getElementById('applyShiftBtn')?.addEventListener('click', applyGlobalShift);
+    document.getElementById('autoAlignBtn')?.addEventListener('click', autoAlign);
+    document.getElementById('clearAllTimingsBtn')?.addEventListener('click', clearAllTimings);
+    document.getElementById('menuNewBtn').addEventListener('click', () => { if(confirm("Сбросить проект? Все данные будут потеряны.")) { currentLyrics = []; timings = []; lyricsInput.value = ''; renderLinesList(); previewLineSpan.innerHTML = '—'; showMessage("Новый проект"); updateStats(); } });
+    document.getElementById('menuHelpBtn').addEventListener('click', () => { alert("🔧 KroKit Studio\n\n✨ РЕДАКТИРОВАНИЕ СТРОК:\n• Клик по строке → привязать текущее время\n• Редактируй текст прямо в поле\n• Кнопки: удалить, переместить ↑↓\n• Добавляй новые строки снизу\n\n🎚️ Про-режим: сдвиг таймингов, авто-выравнивание\n\n📦 Формат .kro: содержит MP3 + синхронизацию"); });
+    addLineBtn.addEventListener('click', addNewLine);
+    newLineTextInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') addNewLine(); });
+    
+    quickModeBtn.addEventListener('click', () => setMode('quick'));
+    proModeBtn.addEventListener('click', () => setMode('pro'));
+    
+    // инициализация
+    addRecordButtons();
+    loadExample();
+    setMode('pro');
+</script>
+</body>
+</html>
