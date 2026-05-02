@@ -232,23 +232,6 @@
             transform: scale(0.97);
         }
 
-        .btn-score {
-            background: #4caf50;
-            border-color: #8bc34a;
-        }
-
-        .btn-score:hover {
-            background: #66bb6a;
-        }
-
-        .btn-danger {
-            background: #f44336;
-        }
-
-        .btn-danger:hover {
-            background: #ff6659;
-        }
-
         .progress-container {
             background: #0f1424;
             border-radius: 60px;
@@ -367,7 +350,7 @@
 <div class="player">
     <div class="header">
         <h1>🪹 KroNest Player</h1>
-        <div class="sub">караоке + нейросетевая оценка вокала 🎤</div>
+        <div class="sub">караоке + автоматическая оценка вокала 🎤</div>
     </div>
 
     <div class="load-zone">
@@ -386,8 +369,6 @@
             <div class="mic-dot" id="micDot"></div>
             <span id="micText">Микрофон выключен</span>
         </div>
-        <button id="startRecognitionBtn" class="btn-score">🎙️ Включить оценку пения</button>
-        <button id="stopRecognitionBtn" class="btn-danger">⏹️ Выключить</button>
     </div>
 
     <div class="lyrics-stage">
@@ -410,7 +391,7 @@
     </div>
 
     <div class="status">
-        💡 Как работает: включите микрофон → начните петь → нейросеть распознаёт слова и сверяет с текстом → в конце песни автоматически покажет результат!
+        💡 Как работает: нажмите «Старт» → микрофон включится автоматически → пойте → в конце песни получите результат!
     </div>
 </div>
 
@@ -454,12 +435,38 @@
     // ---------- НЕЙРОСЕТЬ (Web Speech API) ----------
     let recognition = null;
     let isRecognitionActive = false;
-    let recognizedWords = [];
     let totalWordsCount = 0;
     let recognizedCorrectCount = 0;
     let lineRecognizedFlags = [];
     let songFinished = false;
     let resultShownForCurrentSong = false;
+    let evaluationStarted = false;
+    
+    // ОЧИСТКА ТЕКСТА ОТ СПЕЦСИМВОЛОВ (ноты, знаки препинания и т.д.)
+    function cleanText(text) {
+        // Удаляем всё, кроме букв (включая русские и английские), цифр и пробелов
+        // Оставляем только буквы (Unicode Letter), убираем ноты, эмодзи, знаки препинания
+        return text
+            .toLowerCase()
+            .replace(/[^\p{L}\s]/gu, '') // убираем всё, кроме букв и пробелов
+            .replace(/\s+/g, ' ')        // несколько пробелов в один
+            .trim();
+    }
+    
+    // Разбиение на слова (только значимые слова длиной >= 2)
+    function getWords(text) {
+        const cleaned = cleanText(text);
+        return cleaned.split(/\s+/).filter(w => w.length >= 2);
+    }
+    
+    // Подсчёт общего количества слов во всех строках
+    function calculateTotalWordsCount() {
+        let total = 0;
+        for (const line of lyrics) {
+            total += getWords(line).length;
+        }
+        return total;
+    }
     
     // Инициализация Web Speech API
     function initSpeechRecognition() {
@@ -471,7 +478,7 @@
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         recognition = new SpeechRecognition();
         recognition.continuous = true;
-        recognition.interimResults = false; // используем только финальные результаты
+        recognition.interimResults = false;
         recognition.lang = 'ru-RU';
         
         recognition.onstart = () => {
@@ -483,8 +490,7 @@
         recognition.onend = () => {
             isRecognitionActive = false;
             micDot.classList.remove('active');
-            micText.innerText = 'Микрофон остановлен';
-            // Если песня ещё не закончилась и результат не показан, не перезапускаем
+            micText.innerText = 'Микрофон выключен';
         };
         
         recognition.onerror = (event) => {
@@ -492,14 +498,16 @@
             if (event.error === 'not-allowed') {
                 micText.innerText = '❌ Нет доступа к микрофону';
             } else if (event.error === 'no-speech') {
-                micText.innerText = '🎙️ Говорите громче...';
+                // тихо, не спамим
             } else {
-                micText.innerText = '⚠️ Ошибка: ' + event.error;
+                micText.innerText = '⚠️ ' + event.error;
             }
             micDot.style.background = '#f44336';
         };
         
         recognition.onresult = (event) => {
+            if (!evaluationStarted || songFinished) return;
+            
             let currentTranscript = '';
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 if (event.results[i].isFinal) {
@@ -512,52 +520,6 @@
         };
         
         return true;
-    }
-    
-    // Обработка распознанного текста и сравнение со строками
-    function processRecognizedText(spokenText) {
-        if (!lyrics.length) return;
-        if (songFinished) return; // песня закончилась, не обрабатываем
-        
-        const normalizedSpoken = spokenText.toLowerCase().trim();
-        const spokenWords = normalizedSpoken.split(/\s+/).filter(w => w.length > 1);
-        if (spokenWords.length === 0) return;
-        
-        // Определяем, какую строку сейчас поёт пользователь (активная строка)
-        if (activeLine >= 0 && activeLine < lyrics.length) {
-            const currentLyricLine = lyrics[activeLine].toLowerCase();
-            const lyricWords = currentLyricLine.split(/\s+/).filter(w => w.length > 1);
-            if (lyricWords.length === 0) return;
-            
-            // Проверяем совпадения слов
-            let matchCount = 0;
-            for (let spoken of spokenWords) {
-                for (let lyric of lyricWords) {
-                    // Проверка на вхождение или полное совпадение
-                    if (lyric.includes(spoken) || spoken.includes(lyric) || 
-                        levenshteinDistance(lyric, spoken) <= 2) {
-                        matchCount++;
-                        break;
-                    }
-                }
-            }
-            
-            // Обновляем счётчики для НОВЫХ строк (чтобы не накручивать повторно)
-            if (!lineRecognizedFlags[activeLine]) {
-                lineRecognizedFlags[activeLine] = true;
-                totalWordsCount += lyricWords.length;
-                
-                // Процент совпадения для этой строки
-                const lineMatchPercent = Math.min(1, matchCount / Math.max(1, lyricWords.length));
-                recognizedCorrectCount += Math.floor(lyricWords.length * lineMatchPercent);
-                
-                // Отмечаем строку как распознанную визуально
-                highlightRecognizedLine(activeLine);
-                
-                // Обновляем общий процент
-                updateScorePercent();
-            }
-        }
     }
     
     // Функция Левенштейна для нечёткого сравнения
@@ -578,6 +540,52 @@
         return matrix[b.length][a.length];
     }
     
+    // Обработка распознанного текста
+    function processRecognizedText(spokenText) {
+        if (!lyrics.length || !evaluationStarted) return;
+        
+        const spokenWords = getWords(spokenText);
+        if (spokenWords.length === 0) return;
+        
+        // Определяем, какую строку сейчас поёт пользователь
+        if (activeLine >= 0 && activeLine < lyrics.length) {
+            const lyricWords = getWords(lyrics[activeLine]);
+            if (lyricWords.length === 0) return;
+            
+            // Проверяем совпадения слов
+            let matchCount = 0;
+            const matchedIndices = new Set();
+            
+            for (let spoken of spokenWords) {
+                for (let li = 0; li < lyricWords.length; li++) {
+                    if (matchedIndices.has(li)) continue;
+                    const lyric = lyricWords[li];
+                    // Сравнение: точное вхождение или Левенштейн <= 2
+                    if (lyric.includes(spoken) || spoken.includes(lyric) || 
+                        levenshteinDistance(lyric, spoken) <= 2) {
+                        matchCount++;
+                        matchedIndices.add(li);
+                        break;
+                    }
+                }
+            }
+            
+            // Обновляем счётчики только если строка ещё не учтена
+            if (!lineRecognizedFlags[activeLine]) {
+                lineRecognizedFlags[activeLine] = true;
+                
+                // Процент совпадения для этой строки
+                const lineMatchPercent = Math.min(1, matchCount / lyricWords.length);
+                const matchedWordsCount = Math.floor(lyricWords.length * lineMatchPercent);
+                recognizedCorrectCount += matchedWordsCount;
+                
+                // Отмечаем строку как распознанную
+                highlightRecognizedLine(activeLine);
+                updateScorePercent();
+            }
+        }
+    }
+    
     function highlightRecognizedLine(lineIndex) {
         const lines = document.querySelectorAll('.line');
         if (lines[lineIndex]) {
@@ -594,61 +602,70 @@
         scoreSpan.innerText = Math.min(100, percent) + '%';
     }
     
-    function startRecognition() {
-        if (!recognition) {
-            if (!initSpeechRecognition()) return;
-        }
-        if (isRecognitionActive) {
-            // Если уже активен, не перезапускаем
-            micText.innerText = '🎙️ Уже слушаю...';
-            return;
-        }
-        try {
-            recognition.start();
-            micText.innerText = '🎙️ Слушаю...';
-            micDot.style.background = '#4caf50';
-        } catch (e) {
-            console.error('Ошибка запуска:', e);
-            micText.innerText = '⚠️ Ошибка: ' + e.message;
-        }
-    }
-    
-    function stopRecognition() {
-        if (recognition && isRecognitionActive) {
-            try {
-                recognition.stop();
-            } catch (e) {
-                console.log('Ошибка остановки:', e);
+    function startEvaluation() {
+        if (evaluationStarted) return;
+        if (totalWordsCount === 0) {
+            totalWordsCount = calculateTotalWordsCount();
+            if (totalWordsCount === 0) {
+                console.warn('Нет слов для распознавания');
+                return;
             }
         }
-        micText.innerText = 'Микрофон выключен';
-        micDot.classList.remove('active');
-        micDot.style.background = '#888';
-        isRecognitionActive = false;
-    }
-    
-    function resetScore() {
-        recognizedCorrectCount = 0;
-        totalWordsCount = 0;
-        lineRecognizedFlags = new Array(lyrics.length).fill(false);
-        scoreSpan.innerText = '0%';
-        resultShownForCurrentSong = false;
+        
+        evaluationStarted = true;
         songFinished = false;
-        // убираем подсветку распознанных строк
+        resultShownForCurrentSong = false;
+        recognizedCorrectCount = 0;
+        lineRecognizedFlags = new Array(lyrics.length).fill(false);
+        updateScorePercent();
+        
+        // Убираем подсветку
         document.querySelectorAll('.line').forEach(line => {
             line.classList.remove('recognized-line');
         });
+        
+        // Запускаем микрофон
+        if (!recognition) {
+            if (!initSpeechRecognition()) return;
+        }
+        
+        try {
+            recognition.start();
+        } catch (e) {
+            console.log('Ошибка запуска микрофона:', e);
+        }
+    }
+    
+    function stopEvaluation() {
+        if (!evaluationStarted) return;
+        evaluationStarted = false;
+        
+        if (recognition && isRecognitionActive) {
+            try {
+                recognition.stop();
+            } catch (e) {}
+        }
+        
+        // Показываем результат, если песня закончилась и ещё не показывали
+        if (songFinished && !resultShownForCurrentSong) {
+            showResultModal();
+            resultShownForCurrentSong = true;
+        }
     }
     
     function showResultModal() {
         if (totalWordsCount === 0) {
-            // Если ничего не распознано, показываем сообщение
+            totalWordsCount = calculateTotalWordsCount();
+        }
+        
+        if (totalWordsCount === 0) {
             document.getElementById('resultPercent').innerText = '0%';
-            document.getElementById('resultStats').innerHTML = 'Совпадений: 0 / 0 слов';
-            document.getElementById('resultMessage').innerHTML = '😊 Не удалось распознать слова. Проверьте микрофон и спойте громче!';
+            document.getElementById('resultStats').innerHTML = 'Нет слов для оценки';
+            document.getElementById('resultMessage').innerHTML = '😊 В тексте нет распознаваемых слов';
             document.getElementById('resultModal').classList.add('show');
             return;
         }
+        
         const percent = Math.floor((recognizedCorrectCount / totalWordsCount) * 100);
         document.getElementById('resultPercent').innerText = percent + '%';
         
@@ -664,7 +681,6 @@
         document.getElementById('resultMessage').innerHTML = `${emoji} ${message}`;
         document.getElementById('resultStats').innerHTML = `🎯 Совпадений: ${recognizedCorrectCount} / ${totalWordsCount} слов<br>📊 Точность: ${percent}%`;
         document.getElementById('resultModal').classList.add('show');
-        resultShownForCurrentSong = true;
     }
     
     function closeResultModal() {
@@ -744,17 +760,9 @@
         currSpan.innerText = formatTime(durationTotal);
         updateActive(durationTotal);
         
-        // ПЕСНЯ ЗАКОНЧИЛАСЬ - АВТОМАТИЧЕСКИ ПОКАЗЫВАЕМ РЕЗУЛЬТАТ
+        // Песня закончилась
         songFinished = true;
-        if (recognition && isRecognitionActive) {
-            stopRecognition();
-        }
-        // Показываем результат
-        setTimeout(() => {
-            if (!resultShownForCurrentSong) {
-                showResultModal();
-            }
-        }, 500);
+        stopEvaluation();
     }
     
     function start() {
@@ -764,11 +772,10 @@
         }
         if (isPlaying) return;
         
-        // Сбрасываем оценку при новом запуске, если песня начинается с начала
+        // При старте песни - запускаем оценку
         if (offset === 0 || offset < 0.5) {
-            resetScore();
-            songFinished = false;
-            resultShownForCurrentSong = false;
+            totalWordsCount = calculateTotalWordsCount();
+            startEvaluation();
         }
         
         if (offset >= durationTotal - 0.2) offset = 0;
@@ -804,14 +811,16 @@
         updateActive(0);
         render();
         audio.pause();
-        resetScore();
+        
+        // Останавливаем оценку
+        if (evaluationStarted) {
+            evaluationStarted = false;
+            if (recognition && isRecognitionActive) {
+                try { recognition.stop(); } catch(e) {}
+            }
+        }
         songFinished = false;
         resultShownForCurrentSong = false;
-        
-        // Если распознавание активно, останавливаем
-        if (recognition && isRecognitionActive) {
-            stopRecognition();
-        }
     }
     
     function seek(sec) {
@@ -834,9 +843,13 @@
     
     async function loadKro(file) {
         try {
-            // Останавливаем всё перед загрузкой
             if (isPlaying) pause();
-            if (recognition && isRecognitionActive) stopRecognition();
+            if (evaluationStarted) {
+                evaluationStarted = false;
+                if (recognition && isRecognitionActive) {
+                    try { recognition.stop(); } catch(e) {}
+                }
+            }
             
             const zip = await JSZip.loadAsync(file);
             const projFile = zip.file("project.json");
@@ -846,12 +859,16 @@
             lyrics = proj.lyrics || [];
             timings = proj.timings || new Array(lyrics.length).fill(null);
             songTitleSpan.innerText = proj.songTitle || "Караоке трек";
+            
+            // Пересчитываем общее количество слов
+            totalWordsCount = calculateTotalWordsCount();
+            
             if (audioFile) {
                 const blob = await audioFile.async("blob");
                 const url = URL.createObjectURL(blob);
                 audio.src = url;
                 audio.load();
-                loadStatus.innerText = `✅ Загружено: ${lyrics.length} строк, аудио ${(blob.size / 1024 / 1024).toFixed(2)} MB`;
+                loadStatus.innerText = `✅ Загружено: ${lyrics.length} строк, ${totalWordsCount} слов, аудио ${(blob.size / 1024 / 1024).toFixed(2)} MB`;
             } else {
                 loadStatus.innerText = "⚠️ Нет аудио в .kro";
             }
@@ -863,9 +880,12 @@
             audio.currentTime = 0;
             slider.value = 0;
             currSpan.innerText = "0:00";
-            resetScore();
+            recognizedCorrectCount = 0;
+            lineRecognizedFlags = new Array(lyrics.length).fill(false);
             songFinished = false;
             resultShownForCurrentSong = false;
+            evaluationStarted = false;
+            updateScorePercent();
             render();
             
             audio.addEventListener('ended', () => {
@@ -889,8 +909,6 @@
     pauseBtn.onclick = pause;
     resetBtn.onclick = reset;
     slider.oninput = (e) => seek(parseFloat(e.target.value));
-    document.getElementById('startRecognitionBtn').onclick = startRecognition;
-    document.getElementById('stopRecognitionBtn').onclick = stopRecognition;
     
     initSpeechRecognition();
     render();
